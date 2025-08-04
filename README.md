@@ -1,6 +1,5 @@
 # STAT 7000 Final Project – Biomarker Analysis in Cats
-Exploring the Kidney-Brain Axis in a feline model of PEA15 loss of function
-**Project:** Statistical comparison of blood and CSF biomarkers between genetically "Affected" and "Unaffected" cats.
+Exploring the Kidney-Brain Axis using Statistical comparison of blood and CSF biomarkers between genetically "Affected" and "Unaffected" cats, in a feline model of PEA15 loss of function
 
 ---
 
