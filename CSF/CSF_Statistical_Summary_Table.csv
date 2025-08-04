@@ -1,0 +1,5 @@
+"Biomarker","TestUsed","PValue"
+"LDH (U/L)","Wilcoxon",0.5892
+"AST (U/L)","t-test",0.6245
+"RBC (per ul)","t-test",0.07698
+"PROTEIN (mg/dl)","t-test",0.7552
