@@ -1,0 +1,21 @@
+"Biomarker","TestUsed","PValue"
+"Total protein (g/dl)","Wilcoxon",0.8584
+"Albumin (g/dl)","t-test",0.8069
+"Globulin (g/dl)","t-test",0.5455
+"A/G","Wilcoxon",0.853
+"ALP (U/L)","Wilcoxon",0.8571
+"ALT (U/L)","t-test",0.406
+"AST (U/L)","t-test",0.5637
+"Total Bilirubin (mg/dl)","Wilcoxon",0.5821
+"CK2 (U/L)","Wilcoxon",0.05714
+"Creatinine (mg/dl)","Wilcoxon",0.3543
+"BUN (mg/dl)","t-test",0.7402
+"Glucose (mg/dl)","t-test",0.3691
+"Phosphorus (mg/dl)","t-test",0.919
+"Calcium (mg/dl)","t-test",0.8168
+"Potassium (mmol/l)","t-test",0.4846
+"Sodium (mmol/l)","t-test",0.8577
+"Chloride (mmol/l)","t-test",0.5523
+"Bicarbonate (mmol/l)","Wilcoxon",0.6286
+"Anion Gap","t-test",0.3425
+"Osmol (mOsm/kg)","t-test",0.5851
