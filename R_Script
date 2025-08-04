@@ -1,1 +1,164 @@
+### Final Project for STAT 7000 course-- Summer 2025 ###
+### By: Samira Salimiyan ###
+
+# Load/install required packages
+packages <- c("tidyverse", "ggpubr", "car", "readxl")
+installed <- rownames(installed.packages())
+for (pkg in packages) {
+  if (!(pkg %in% installed)) install.packages(pkg)
+}
+lapply(packages, library, character.only = TRUE)
+
+# Set your working directory
+setwd("")
+
+# Define color mapping
+group_colors <- c("Unaffected" = "blue", "Affected" = "red")
+
+#################### BLOOD #################### 
+data <- read_excel("Cat_Kidney_Brain_Bloodwork.xlsx")
+data$Group <- factor(data$Genotype, levels = c("Unaffected", "Affected"))
+
+biomarkers <- c(
+  "Total protein (g/dl)", "Albumin (g/dl)", "Globulin (g/dl)", "A/G",
+  "ALP (U/L)", "ALT (U/L)", "AST (U/L)", "Total Bilirubin (mg/dl)",
+  "CK2 (U/L)", "Creatinine (mg/dl)", "BUN (mg/dl)", "Glucose (mg/dl)",
+  "Phosphorus (mg/dl)", "Calcium (mg/dl)", "Potassium (mmol/l)",
+  "Sodium (mmol/l)", "Chloride (mmol/l)", "Bicarbonate (mmol/l)",
+  "Anion Gap", "Osmol (mOsm/kg)"
+)
+
+summary_table <- data.frame(Biomarker = character(), TestUsed = character(), PValue = numeric())
+
+pdf("Biomarker_Boxplots.pdf", width = 8, height = 6)
+
+for (marker in biomarkers) {
+  message(paste("Analyzing:", marker))
+  plot_data <- data %>% select(Group, all_of(marker)) %>% drop_na()
+  group_counts <- table(plot_data$Group)
+  if (any(group_counts < 3)) {
+    message(paste("Skipping", marker, "- insufficient data"))
+    next
+  }
+  
+  shapiro_p1 <- shapiro.test(plot_data[[marker]][plot_data$Group == "Affected"])$p.value
+  shapiro_p2 <- shapiro.test(plot_data[[marker]][plot_data$Group == "Unaffected"])$p.value
+  levene_p <- leveneTest(as.formula(paste0("`", marker, "` ~ Group")), data = plot_data)$`Pr(>F)`[1]
+  
+  if (shapiro_p1 > 0.05 && shapiro_p2 > 0.05 && levene_p > 0.05) {
+    test_result <- t.test(as.formula(paste0("`", marker, "` ~ Group")), data = plot_data)
+    test_used <- "t-test"
+  } else {
+    test_result <- wilcox.test(as.formula(paste0("`", marker, "` ~ Group")), data = plot_data)
+    test_used <- "Wilcoxon"
+  }
+  
+  y_sym <- rlang::sym(marker)
+  filename_base <- gsub("[^A-Za-z0-9]", "_", marker)
+  
+  p_box <- ggplot(plot_data, aes(x = Group, y = !!y_sym, color = Group)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.2, size = 2) +
+    stat_compare_means(method = ifelse(test_used == "t-test", "t.test", "wilcox.test"), label = "p.format",
+                       label.y = max(plot_data[[marker]], na.rm = TRUE) * 1.05) +
+    labs(title = paste(marker, "-", test_used, "(Boxplot)"), y = marker) +
+    scale_color_manual(values = group_colors) +
+    theme_minimal()
+  
+  print(p_box)
+  ggsave(paste0("Plot_Box_", filename_base, ".png"), p_box, width = 7, height = 5, dpi = 300)
+  
+  p_violin <- ggplot(plot_data, aes(x = Group, y = !!y_sym, fill = Group)) +
+    geom_violin(trim = FALSE, alpha = 0.6) +
+    geom_boxplot(width = 0.1, outlier.shape = NA) +
+    stat_compare_means(method = ifelse(test_used == "t-test", "t.test", "wilcox.test"), label = "p.format",
+                       label.y = max(plot_data[[marker]], na.rm = TRUE) * 1.05) +
+    labs(title = paste(marker, "-", test_used, "(Violin)"), y = marker) +
+    scale_fill_manual(values = group_colors) +
+    theme_minimal()
+  
+  print(p_violin)
+  ggsave(paste0("Plot_Violin_", filename_base, ".png"), p_violin, width = 7, height = 5, dpi = 300)
+  
+  summary_table <- rbind(summary_table, data.frame(
+    Biomarker = marker,
+    TestUsed = test_used,
+    PValue = signif(test_result$p.value, 4)
+  ))
+}
+
+dev.off()
+write.csv(summary_table, "Statistical_Summary_Table.csv", row.names = FALSE)
+print(summary_table)
+
+#################### CSF #################### 
+df <- read_excel("CSF.xlsx")
+df$Group <- factor(df$Genotype, levels = c("Unaffected", "Affected"))
+
+dir.create("CSF_Boxplots", showWarnings = FALSE)
+dir.create("CSF_ViolinPlots", showWarnings = FALSE)
+
+marker_cols <- setdiff(colnames(df)[4:ncol(df)], c("TRIG (mg/dl)", "Group"))
+
+# Initialize CSF summary table
+csf_summary_table <- data.frame(Biomarker = character(), TestUsed = character(), PValue = numeric())
+
+for (marker in marker_cols) {
+  cat("Analyzing:", marker, "\n")
+  marker_clean <- gsub("[^A-Za-z0-9]", "_", marker)
+  data <- df[!is.na(df[[marker]]), ]
+  data[[marker]] <- suppressWarnings(as.numeric(data[[marker]]))
+  
+  g1 <- data[data$Group == "Unaffected", marker, drop = TRUE]
+  g2 <- data[data$Group == "Affected", marker, drop = TRUE]
+  
+  if (length(g1) < 3 || length(g2) < 3 || length(unique(g1)) <= 1 || length(unique(g2)) <= 1) {
+    cat("⚠️ Skipping", marker, "- not enough valid or variable data.\n")
+    next
+  }
+  
+  test_result <- tryCatch({
+    if (shapiro.test(g1)$p.value > 0.05 && shapiro.test(g2)$p.value > 0.05) {
+      t.test(data[[marker]] ~ data$Group)
+    } else {
+      wilcox.test(data[[marker]] ~ data$Group)
+    }
+  }, error = function(e) NULL)
+  
+  p_value <- if (!is.null(test_result)) round(test_result$p.value, 4) else NA
+  pval_label <- if (!is.na(p_value)) paste("P-value:", p_value) else "Test not available"
+  
+  boxplot <- ggplot(data, aes(x = Group, y = .data[[marker]], fill = Group)) +
+    geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+    geom_jitter(width = 0.2, alpha = 0.6) +
+    labs(title = paste("Boxplot of", marker), subtitle = pval_label, y = marker) +
+    scale_fill_manual(values = group_colors) +
+    theme_minimal()
+  
+  violin <- ggplot(data, aes(x = Group, y = .data[[marker]], fill = Group)) +
+    geom_violin(alpha = 0.6, trim = FALSE) +
+    geom_jitter(width = 0.2, alpha = 0.6) +
+    labs(title = paste("Violin Plot of", marker), subtitle = pval_label, y = marker) +
+    scale_fill_manual(values = group_colors) +
+    theme_minimal()
+  
+  ggsave(paste0("CSF_Boxplots/", marker_clean, "_boxplot.png"), boxplot, width = 6, height = 5, dpi = 300)
+  ggsave(paste0("CSF_ViolinPlots/", marker_clean, "_violin.png"), violin, width = 6, height = 5, dpi = 300)
+  
+  # Add results to CSF summary table
+  if (!is.null(test_result)) {
+    csf_summary_table <- rbind(csf_summary_table, data.frame(
+      Biomarker = marker,
+      TestUsed = ifelse(shapiro.test(g1)$p.value > 0.05 && shapiro.test(g2)$p.value > 0.05, "t-test", "Wilcoxon"),
+      PValue = signif(test_result$p.value, 4)
+    ))
+  }
+}
+
+# Save and print CSF summary table
+write.csv(csf_summary_table, "CSF_Statistical_Summary_Table.csv", row.names = FALSE)
+print(csf_summary_table)
+
+cat("✅ All BLOOD and CSF plots generated with consistent colors!\n")
+
 
